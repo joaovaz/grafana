@@ -170,22 +170,38 @@
 					ng-model="ctrl.panel.gauge.show" ng-checked="ctrl.panel.gauge.show" ng-change="ctrl.render()">
 					<label for="panel.gauge.show" class="cr1"></label>
 				</li>
+
+
+
 				<li class="tight-form-item">
 					Min
 				</li>
 				<li>
 					<input type="number" class="input-small tight-form-input" ng-model="ctrl.panel.gauge.minValue" ng-blur="ctrl.render()" placeholder="0"></input>
 				</li>
+
 				<li class="tight-form-item last">
-					Max
+          Max
+          <input type="radio" ng-model="ctrl.panel.gauge.maxChoice" value="singleValue" >
+
 				</li>
 				<li>
-					<input type="number" class="input-small tight-form-input last" ng-model="ctrl.panel.gauge.maxValue" ng-blur="ctrl.render()" placeholder="100"></input>
+					<input type="number" class="input-small tight-form-input last" ng-model="ctrl.panel.gauge.maxValue" ng-disabled="ctrl.panel.gauge.maxChoice == 'seriesValue'" ng-blur="ctrl.render()" placeholder="100"></input>
 					<span class="alert-state-critical" ng-show="ctrl.invalidGaugeRange">
 						&nbsp; <i class="fa fa-warning"></i>
 						Min value is bigger than max.
             &nbsp;
 					</span>
+
+        <li class="tight-form-item last" >
+        Max from datasource
+        <input type="radio" ng-model="ctrl.panel.gauge.maxChoice"  value="seriesValue">
+
+        </li>
+        </li>
+        <li>
+          <select  ng-model="ctrl.panel.gauge.maxValuedt" ng-disabled="ctrl.panel.gauge.maxChoice == 'singleValue'"  ng-options="y.refId for y in {{ctrl.panel.targets}} | filter:{maxValueDtOnly: true} track by y.refId"  ng-blur="ctrl.maxGaugeValueSource()" class="input-mini">
+          </select>
 				</li>
 			</ul>
 			<div class="clearfix"></div>

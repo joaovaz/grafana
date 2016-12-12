@@ -17,8 +17,10 @@ var panelTemplate = `
       <span class="panel-loading" ng-show="ctrl.loading">
         <i class="fa fa-spinner fa-spin"></i>
       </span>
-
+      
+      
       <div class="panel-title-container drag-handle" panel-menu></div>
+      
     </div>
 
     <div class="panel-content">

@@ -13,6 +13,7 @@ export class SearchCtrl {
   giveSearchFocus: number;
   selectedIndex: number;
   results: any;
+  temResultsQuery: any;
   currentSearchId: number;
   tagsMode: boolean;
   showImport: boolean;
@@ -39,6 +40,7 @@ export class SearchCtrl {
     this.giveSearchFocus = 0;
     this.selectedIndex = -1;
     this.results = [];
+    this.temResultsQuery = [];
     this.query = { query: '', tag: [], starred: false };
     this.currentSearchId = 0;
     this.ignoreClose = true;
@@ -91,17 +93,46 @@ export class SearchCtrl {
 
     return this.backendSrv.search(this.query).then((results) => {
       if (localSearchId < this.currentSearchId) { return; }
-
-      this.results = _.map(results, function(dash) {
+      this.results = [];
+      this.temResultsQuery = _.map(results, function(dash) {
         dash.url = 'dashboard/' + dash.uri;
         return dash;
       });
+      var controlStop = 0;
+      var tempResulstQueryInitialSize = this.temResultsQuery.length;
 
-      if (this.queryHasNoFilters()) {
-        this.results.unshift({ title: 'Home', url: config.appSubUrl + '/', type: 'dash-home' });
+
+      for (var i = 0; i<this.temResultsQuery.length; i++) {
+        var typeSlug = this.temResultsQuery[i].uri;
+        var resd = typeSlug.split("/");
+        this.backendSrv.getDashboard(resd[0], resd[1]).then((results) => {
+          controlStop++;
+          if (results.dashboard.hideDashboard !== true) {
+
+            for (var t = 0; t < this.temResultsQuery.length; t++) {
+              if (this.temResultsQuery[t].id === results.dashboard.id) {
+                this.results.push(this.temResultsQuery[t]);
+                break;
+              }
+            }
+          }
+          if (controlStop === tempResulstQueryInitialSize) {
+            if (this.queryHasNoFilters()) {
+              this.results.unshift({title: 'Home', url: config.appSubUrl + '/', type: 'dash-home'});
+            }
+          }
+        });
+      }
+
+      if (tempResulstQueryInitialSize ===0) {
+        if (this.queryHasNoFilters()) {
+          this.results.unshift({title: 'Home', url: config.appSubUrl + '/', type: 'dash-home'});
+        }
       }
     });
   }
+
+
 
   queryHasNoFilters() {
     var query = this.query;
@@ -148,6 +179,18 @@ export class SearchCtrl {
     this.selectedIndex = 0;
     this.searchDashboards();
   };
+
+  searchOnlyVisible(single){
+      var typeSlug = single.uri;
+      var resd = typeSlug.split("/");
+      var sing = this.backendSrv.getDashboard(resd[0],resd[1]);
+
+      return sing.then(function(result) {
+        if ( result.dashboard.hideDashboard === true ) {
+          return single;
+        }
+      });
+  }
 
 }
 

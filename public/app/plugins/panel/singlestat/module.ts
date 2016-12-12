@@ -22,6 +22,8 @@ class SingleStatCtrl extends MetricsPanelCtrl {
   panel: any;
   events: any;
   valueNameOptions: any[] = ['min','max','avg', 'current', 'total', 'name'];
+  maxFromDataSource: any;
+  maxFromDataSourceSeries: any[];
 
   // Set and populate defaults
   panelDefaults = {
@@ -66,7 +68,10 @@ class SingleStatCtrl extends MetricsPanelCtrl {
       minValue: 0,
       maxValue: 100,
       thresholdMarkers: true,
-      thresholdLabels: false
+      thresholdLabels: false,
+      maxValuedt: null,
+      maxChoice: "singleValue"
+
     }
   };
 
@@ -99,11 +104,95 @@ class SingleStatCtrl extends MetricsPanelCtrl {
 
   onDataReceived(dataList) {
     this.series = dataList.map(this.seriesHandler.bind(this));
-
     var data: any = {};
     this.setValues(data);
 
     this.data = data;
+
+    if (this.panel.gauge.maxChoice === "seriesValue"){
+      this.maxGaugeValueSource();
+    }
+    this.render();
+  }
+
+
+
+  maxGaugeValueSource(){
+    this.panel.gauge.sourceValue = true;
+    this.datasourceSrv.get(this.panel.datasource)
+      .then(this.issueQueriesSingleTarget.bind(this))
+      .then(this.handleQueryResultSingleTarget.bind(this))
+      .catch(err => {
+        // if cancelled  keep loading set to true
+        if (err.cancelled) {
+          console.log('Panel request cancelled', err);
+          return;
+        }
+
+        this.loading = false;
+        this.error = err.message || "Request Error";
+        this.inspector = {error: err};
+        this.events.emit('data-error', err);
+        console.log('Panel data error:', err);
+      });
+  }
+
+  issueQueriesSingleTarget(datasource) {
+    this.updateTimeRange();
+    this.datasource = datasource;
+    if (!this.panel.targets || this.panel.targets.length === 0) {
+      return this.$q.when([]);
+    }
+    var tet = [];
+    for (var i = 0; i<this.panel.targets.length; i++){
+      if (this.panel.targets[i].refId === this.panel.gauge.maxValuedt.refId){
+        tet.push(this.panel.targets[i]);
+        break;
+      }
+    }
+    if (tet.length>0) {
+
+      var metricsQuery = {
+        panelId: this.panel.id,
+        range: this.range,
+        rangeRaw: this.rangeRaw,
+        interval: this.interval,
+        targets: tet,
+        format: this.panel.renderer === 'png' ? 'png' : 'json',
+        maxDataPoints: this.resolution,
+        scopedVars: this.panel.scopedVars,
+        cacheTimeout: this.panel.cacheTimeout
+      };
+      var rt = datasource.query(metricsQuery);
+      return rt;
+    }
+    return null;
+  }
+
+  handleQueryResultSingleTarget(result) {
+    this.setTimeQueryEnd();
+    this.loading = false;
+
+    // check for if data source returns subject
+    if (result && result.subscribe) {
+      this.handleDataStream(result);
+      return;
+    }
+
+    if (this.dashboard.snapshot) {
+      this.panel.snapshotData = result.data;
+    }
+
+    if (!result || !result.data) {
+      console.log('Data source query result invalid, missing data field:', result);
+      result = {data: []};
+    }
+    this.maxFromDataSourceSeries = result.data.map(this.seriesHandler.bind(this));
+    var data: any = {};
+    this.setValuesFromDataSource(data);
+
+    this.maxFromDataSource = data;
+    this.panel.gauge.maxValue = data.valueRounded;
     this.render();
   }
 
@@ -174,10 +263,101 @@ class SingleStatCtrl extends MetricsPanelCtrl {
     return result;
   }
 
-  setValues(data) {
+  setValuesFromDataSource(data) {
     data.flotpairs = [];
 
+    if (this.maxFromDataSourceSeries.length > 1) {
+      var error: any = new Error();
+      error.message = 'Multiple Series Error';
+      error.data = 'Metric query returns ' + this.maxFromDataSourceSeries.length +
+        ' series. Single Stat Panel expects a single series.\n\nResponse:\n'+JSON.stringify(this.maxFromDataSourceSeries);
+      throw error;
+    }
+
+    if (this.maxFromDataSourceSeries && this.maxFromDataSourceSeries.length > 0) {
+      var lastPoint = _.last(this.maxFromDataSourceSeries[0].datapoints);
+      var lastValue = _.isArray(lastPoint) ? lastPoint[0] : null;
+
+      if (this.panel.valueName === 'name') {
+        data.value = 0;
+        data.valueRounded = 0;
+        data.valueFormated = this.maxFromDataSourceSeries[0].alias;
+      } else if (_.isString(lastValue)) {
+        data.value = 0;
+        data.valueFormated = _.escape(lastValue);
+        data.valueRounded = 0;
+      } else {
+        data.value = this.maxFromDataSourceSeries[0].stats[this.panel.valueName];
+        data.flotpairs = this.maxFromDataSourceSeries[0].flotpairs;
+
+        var decimalInfo = this.getDecimalsForValue(data.value);
+        var formatFunc = kbn.valueFormats[this.panel.format];
+        data.valueFormated = formatFunc(data.value, decimalInfo.decimals, decimalInfo.scaledDecimals);
+        data.valueRounded = kbn.roundValue(data.value, decimalInfo.decimals);
+      }
+
+      // Add $__name variable for using in prefix or postfix
+      data.scopedVars = {
+        __name: {
+          value: this.maxFromDataSourceSeries[0].label
+        }
+      };
+    }
+
+    // check value to text mappings if its enabled
+    if (this.panel.mappingType === 1) {
+      for (var i = 0; i < this.panel.valueMaps.length; i++) {
+        var map = this.panel.valueMaps[i];
+        // special null case
+        if (map.value === 'null') {
+          if (data.value === null || data.value === void 0) {
+            data.valueFormated = map.text;
+            return;
+          }
+          continue;
+        }
+
+        // value/number to text mapping
+        var value = parseFloat(map.value);
+        if (value === data.valueRounded) {
+          data.valueFormated = map.text;
+          return;
+        }
+      }
+    } else if (this.panel.mappingType === 2) {
+      for (var i = 0; i < this.panel.rangeMaps.length; i++) {
+        var map = this.panel.rangeMaps[i];
+        // special null case
+        if (map.from === 'null' && map.to === 'null') {
+          if (data.value === null || data.value === void 0) {
+            data.valueFormated = map.text;
+            return;
+          }
+          continue;
+        }
+
+        // value/number to range mapping
+        var from = parseFloat(map.from);
+        var to = parseFloat(map.to);
+        if (to >= data.valueRounded && from <= data.valueRounded) {
+          data.valueFormated = map.text;
+          return;
+        }
+      }
+    }
+
+    if (data.value === null || data.value === void 0) {
+      data.valueFormated = "no value";
+    }
+  };
+
+
+
+
+  setValues(data) {
+    data.flotpairs = [];
     if (this.series.length > 1) {
+
       var error: any = new Error();
       error.message = 'Multiple Series Error';
       error.data = 'Metric query returns ' + this.series.length +

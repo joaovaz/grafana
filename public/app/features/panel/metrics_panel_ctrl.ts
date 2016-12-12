@@ -176,12 +176,22 @@ class MetricsPanelCtrl extends PanelCtrl {
       return this.$q.when([]);
     }
 
+
+    var finalTarget = [];
+    for (var i = 0; i< this.panel.targets.length; i++){
+      if (!this.panel.targets[i].maxValueDtOnly){
+        finalTarget.push(this.panel.targets[i]);
+      }
+    }
+    if (!finalTarget || finalTarget.length === 0) {
+      return this.$q.when([]);
+    }
     var metricsQuery = {
       panelId: this.panel.id,
       range: this.range,
       rangeRaw: this.rangeRaw,
       interval: this.interval,
-      targets: this.panel.targets,
+      targets: finalTarget,
       format: this.panel.renderer === 'png' ? 'png' : 'json',
       maxDataPoints: this.resolution,
       scopedVars: this.panel.scopedVars,
@@ -192,6 +202,7 @@ class MetricsPanelCtrl extends PanelCtrl {
   }
 
   handleQueryResult(result) {
+
     this.setTimeQueryEnd();
     this.loading = false;
 

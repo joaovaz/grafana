@@ -11,6 +11,7 @@ function (_, $, coreModule) {
       link: function($scope, elem) {
 
         var lastHideControlsVal;
+        var lastHideDashboard;
 
         $scope.onAppEvent('panel-fullscreen-enter', function() {
           elem.toggleClass('panel-in-fullscreen', true);
@@ -20,11 +21,22 @@ function (_, $, coreModule) {
           elem.toggleClass('panel-in-fullscreen', false);
         });
 
+        $scope.$watch('dashboard.hideDashboard', function() {
+          if (!$scope.dashboard) {
+            return;
+          }
+          var hideDash = $scope.dashboard.hideDashboard;
+
+          if (lastHideDashboard !== hideDash) {
+            lastHideDashboard = hideDash;
+          }
+
+        });
+
         $scope.$watch('dashboard.hideControls', function() {
           if (!$scope.dashboard) {
             return;
           }
-
           var hideControls = $scope.dashboard.hideControls || $scope.playlist_active;
 
           if (lastHideControlsVal !== hideControls) {

@@ -36,6 +36,10 @@ export class QueryRowCtrl {
     this.panelCtrl.refresh();
   }
 
+  datasourceMax(){
+    this.target.maxValueDtOnly = !this.target.maxValueDtOnly;
+    this.panelCtrl.refresh();
+  }
   getNextQueryLetter() {
     var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 

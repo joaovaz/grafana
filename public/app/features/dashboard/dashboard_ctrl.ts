@@ -165,6 +165,9 @@ export class DashboardCtrl {
       this.$scope.resetRow();
       this.$scope.registerWindowResizeEvent();
       this.$scope.onAppEvent('show-json-editor', this.$scope.showJsonEditor);
+      this.$scope.onAppEvent('template-variable-value-updated', function () {
+        console.log("porra1");
+      });
       this.$scope.onAppEvent('template-variable-value-updated', this.$scope.templateVariableUpdated);
       this.$scope.setupDashboard(dashboard);
     }

@@ -1,5 +1,5 @@
 
-<div class="gf-form-query">
+<div class="gf-form-query" ng-style="{ border: ctrl.target.maxValueDtOnly == true ? '1px dotted' : '' }" >
 	<div class="gf-form">
     <label class="gf-form-label gf-form-query-letter-cell">
       <a class="pointer" tabindex="1" ng-click="ctrl.toggleCollapse()">
@@ -54,6 +54,11 @@
 				<i class="fa fa-trash"></i>
 			</a>
 		</label>
+    <label class="gf-form-label">
+      <a class="pointer"  ng-click="ctrl.datasourceMax(ctrl.target)" title="Select if you wish to datasource be used only to max gauge value">
+        <i class="fa fa-bar-chart-o"></i>
+      </a>
+    </label>
 	</div>
 </div>
 
