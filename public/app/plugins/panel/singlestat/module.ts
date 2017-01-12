@@ -21,10 +21,9 @@ class SingleStatCtrl extends MetricsPanelCtrl {
   invalidGaugeRange: boolean;
   panel: any;
   events: any;
-  valueNameOptions: any[] = ['min','max','avg', 'current', 'total', 'name'];
+  valueNameOptions: any[] = ['min','max','avg', 'current', 'total', 'name', 'first', 'delta', 'range'];
   maxFromDataSource: any;
   maxFromDataSourceSeries: any[];
-
   // Set and populate defaults
   panelDefaults = {
     links: [],
@@ -104,6 +103,7 @@ class SingleStatCtrl extends MetricsPanelCtrl {
 
   onDataReceived(dataList) {
     this.series = dataList.map(this.seriesHandler.bind(this));
+
     var data: any = {};
     this.setValues(data);
 
@@ -190,10 +190,8 @@ class SingleStatCtrl extends MetricsPanelCtrl {
     this.maxFromDataSourceSeries = result.data.map(this.seriesHandler.bind(this));
     var data: any = {};
     this.setValuesFromDataSource(data);
-
     this.maxFromDataSource = data;
     this.panel.gauge.maxValue = data.valueRounded;
-    this.render();
   }
 
   seriesHandler(seriesData) {
@@ -356,8 +354,8 @@ class SingleStatCtrl extends MetricsPanelCtrl {
 
   setValues(data) {
     data.flotpairs = [];
-    if (this.series.length > 1) {
 
+    if (this.series.length > 1) {
       var error: any = new Error();
       error.message = 'Multiple Series Error';
       error.data = 'Metric query returns ' + this.series.length +
@@ -388,11 +386,8 @@ class SingleStatCtrl extends MetricsPanelCtrl {
       }
 
       // Add $__name variable for using in prefix or postfix
-      data.scopedVars = {
-        __name: {
-          value: this.series[0].label
-        }
-      };
+      data.scopedVars = _.extend({}, this.panel.scopedVars);
+      data.scopedVars["__name"] = {value: this.series[0].label};
     }
 
     // check value to text mappings if its enabled
@@ -706,7 +701,7 @@ class SingleStatCtrl extends MetricsPanelCtrl {
       elem.toggleClass('pointer', panel.links.length > 0);
 
       if (panel.links.length > 0) {
-        linkInfo = linkSrv.getPanelLinkAnchorInfo(panel.links[0], panel.scopedVars);
+        linkInfo = linkSrv.getPanelLinkAnchorInfo(panel.links[0], data.scopedVars);
       } else {
         linkInfo = null;
       }

@@ -1,107 +1,110 @@
 define([
   'jquery',
-  'lodash',
-  'moment'
+  'lodash'
 ],
-function($, _, moment) {
+function($, _) {
   'use strict';
 
   var kbn = {};
   kbn.valueFormats = {};
 
+  kbn.regexEscape = function(value) {
+    return value.replace(/[\\^$*+?.()|[\]{}\/]/g, '\\$&');
+  };
+
   ///// HELPER FUNCTIONS /////
 
   kbn.round_interval = function(interval) {
     switch (true) {
-    // 0.015s
-    case (interval <= 15):
-      return 10;      // 0.01s
-    // 0.035s
-    case (interval <= 35):
-      return 20;      // 0.02s
-    // 0.075s
-    case (interval <= 75):
-      return 50;       // 0.05s
-    // 0.15s
-    case (interval <= 150):
-      return 100;      // 0.1s
-    // 0.35s
-    case (interval <= 350):
-      return 200;      // 0.2s
-    // 0.75s
-    case (interval <= 750):
-      return 500;       // 0.5s
-    // 1.5s
-    case (interval <= 1500):
-      return 1000;      // 1s
-    // 3.5s
-    case (interval <= 3500):
-      return 2000;      // 2s
-    // 7.5s
-    case (interval <= 7500):
-      return 5000;      // 5s
-    // 12.5s
-    case (interval <= 12500):
-      return 10000;     // 10s
-    // 17.5s
-    case (interval <= 17500):
-      return 15000;     // 15s
-    // 25s
-    case (interval <= 25000):
-      return 20000;     // 20s
-    // 45s
-    case (interval <= 45000):
-      return 30000;     // 30s
-    // 1.5m
-    case (interval <= 90000):
-      return 60000;     // 1m
-    // 3.5m
-    case (interval <= 210000):
-      return 120000;    // 2m
-    // 7.5m
-    case (interval <= 450000):
-      return 300000;    // 5m
-    // 12.5m
-    case (interval <= 750000):
-      return 600000;    // 10m
-    // 12.5m
-    case (interval <= 1050000):
-      return 900000;    // 15m
-    // 25m
-    case (interval <= 1500000):
-      return 1200000;   // 20m
-    // 45m
-    case (interval <= 2700000):
-      return 1800000;   // 30m
-    // 1.5h
-    case (interval <= 5400000):
-      return 3600000;   // 1h
-    // 2.5h
-    case (interval <= 9000000):
-      return 7200000;   // 2h
-    // 4.5h
-    case (interval <= 16200000):
-      return 10800000;  // 3h
-    // 9h
-    case (interval <= 32400000):
-      return 21600000;  // 6h
-    // 24h
-    case (interval <= 86400000):
-      return 43200000;  // 12h
-    // 48h
-    case (interval <= 172800000):
-      return 86400000;  // 24h
-    // 1w
-    case (interval <= 604800000):
-      return 86400000;  // 24h
-    // 3w
-    case (interval <= 1814400000):
-      return 604800000; // 1w
-    // 2y
-    case (interval < 3628800000):
-      return 2592000000; // 30d
-    default:
-      return 31536000000; // 1y
+      // 0.015s
+      case (interval <= 15):
+        return 10;      // 0.01s
+      // 0.035s
+      case (interval <= 35):
+        return 20;      // 0.02s
+      // 0.075s
+      case (interval <= 75):
+        return 50;       // 0.05s
+      // 0.15s
+      case (interval <= 150):
+        return 100;      // 0.1s
+      // 0.35s
+      case (interval <= 350):
+        return 200;      // 0.2s
+      // 0.75s
+      case (interval <= 750):
+        return 500;       // 0.5s
+      // 1.5s
+      case (interval <= 1500):
+        return 1000;      // 1s
+      // 3.5s
+      case (interval <= 3500):
+        return 2000;      // 2s
+      // 7.5s
+      case (interval <= 7500):
+        return 5000;      // 5s
+      // 12.5s
+      case (interval <= 12500):
+        return 10000;     // 10s
+      // 17.5s
+      case (interval <= 17500):
+        return 15000;     // 15s
+      // 25s
+      case (interval <= 25000):
+        return 20000;     // 20s
+      // 45s
+      case (interval <= 45000):
+        return 30000;     // 30s
+      // 1.5m
+      case (interval <= 90000):
+        return 60000;     // 1m
+      // 3.5m
+      case (interval <= 210000):
+        return 120000;    // 2m
+      // 7.5m
+      case (interval <= 450000):
+        return 300000;    // 5m
+      // 12.5m
+      case (interval <= 750000):
+        return 600000;    // 10m
+      // 12.5m
+      case (interval <= 1050000):
+        return 900000;    // 15m
+      // 25m
+      case (interval <= 1500000):
+        return 1200000;   // 20m
+      // 45m
+      case (interval <= 2700000):
+        return 1800000;   // 30m
+      // 1.5h
+      case (interval <= 5400000):
+        return 3600000;   // 1h
+      // 2.5h
+      case (interval <= 9000000):
+        return 7200000;   // 2h
+      // 4.5h
+      case (interval <= 16200000):
+        return 10800000;  // 3h
+      // 9h
+      case (interval <= 32400000):
+        return 21600000;  // 6h
+      // 24h
+      case (interval <= 86400000):
+        return 43200000;  // 12h
+      // 48h
+      case (interval <= 172800000):
+        return 86400000;  // 24h
+      // 1w
+      case (interval <= 604800000):
+        return 86400000;  // 24h
+      // 3w
+      case (interval <= 1814400000):
+        return 604800000; // 1w
+      // 2y
+      case (interval < 3628800000):
+        return 2592000000; // 30d
+      default:
+        return 31536000000; // 1y
     }
   };
 
@@ -170,7 +173,10 @@ function($, _, moment) {
         lowLimitMs = kbn.interval_to_ms(lowLimitInterval);
       }
       else {
-        return userInterval;
+        return {
+          intervalMs: kbn.interval_to_ms(userInterval),
+          interval: userInterval,
+        };
       }
     }
 
@@ -179,7 +185,10 @@ function($, _, moment) {
       intervalMs = lowLimitMs;
     }
 
-    return kbn.secondsToHms(intervalMs / 1000);
+    return {
+      intervalMs: intervalMs,
+      interval: kbn.secondsToHms(intervalMs / 1000),
+    };
   };
 
   kbn.describe_interval = function (string) {
@@ -410,11 +419,11 @@ function($, _, moment) {
   kbn.valueFormats.bps    = kbn.formatBuilders.decimalSIPrefix('bps');
   kbn.valueFormats.Bps    = kbn.formatBuilders.decimalSIPrefix('Bps');
   kbn.valueFormats.KBs    = kbn.formatBuilders.decimalSIPrefix('Bs', 1);
-  kbn.valueFormats.Kbits  = kbn.formatBuilders.decimalSIPrefix('bits', 1);
+  kbn.valueFormats.Kbits  = kbn.formatBuilders.decimalSIPrefix('bps', 1);
   kbn.valueFormats.MBs    = kbn.formatBuilders.decimalSIPrefix('Bs', 2);
-  kbn.valueFormats.Mbits  = kbn.formatBuilders.decimalSIPrefix('bits', 2);
+  kbn.valueFormats.Mbits  = kbn.formatBuilders.decimalSIPrefix('bps', 2);
   kbn.valueFormats.GBs    = kbn.formatBuilders.decimalSIPrefix('Bs', 3);
-  kbn.valueFormats.Gbits  = kbn.formatBuilders.decimalSIPrefix('bits', 3);
+  kbn.valueFormats.Gbits  = kbn.formatBuilders.decimalSIPrefix('bps', 3);
 
   // Throughput
   kbn.valueFormats.ops  = kbn.formatBuilders.simpleCountUnit('ops');
@@ -621,16 +630,50 @@ function($, _, moment) {
     }
   };
 
-  kbn.toDuration = function(size, timeScale) {
-    return moment.duration(size, timeScale);
+  kbn.toDuration = function(size, decimals, timeScale) {
+    if (size === null) { return ""; }
+    if (size === 0) { return "0 " + timeScale + "s"; }
+    if (size < 0) { return kbn.toDuration(-size, decimals, timeScale) + " ago"; }
+
+    var units = [
+      {short: "y",  long: "year"},
+      {short: "M",  long: "month"},
+      {short: "w",  long: "week"},
+      {short: "d",  long: "day"},
+      {short: "h",  long: "hour"},
+      {short: "m",  long: "minute"},
+      {short: "s",  long: "second"},
+      {short: "ms", long: "millisecond"}
+    ];
+    // convert $size to milliseconds
+    // intervals_in_seconds uses seconds (duh), convert them to milliseconds here to minimize floating point errors
+    size *= kbn.intervals_in_seconds[units.find(function(e) { return e.long === timeScale; }).short] * 1000;
+
+    var string = [];
+    // after first value >= 1 print only $decimals more
+    var decrementDecimals = false;
+    for (var i = 0; i < units.length && decimals >= 0; i++) {
+      var interval = kbn.intervals_in_seconds[units[i].short] * 1000;
+      var value = size / interval;
+      if (value >= 1 || decrementDecimals) {
+        decrementDecimals = true;
+        var floor = Math.floor(value);
+        var unit = units[i].long + (floor !== 1 ? "s" : "");
+        string.push(floor + " " + unit);
+        size = size % interval;
+        decimals--;
+      }
+    }
+
+    return string.join(", ");
   };
 
-  kbn.valueFormats.dtdurationms = function(size) {
-    return kbn.toDuration(size, 'ms').humanize();
+  kbn.valueFormats.dtdurationms = function(size, decimals) {
+    return kbn.toDuration(size, decimals, 'millisecond');
   };
 
-  kbn.valueFormats.dtdurations = function(size) {
-    return kbn.toDuration(size, 's').humanize();
+  kbn.valueFormats.dtdurations = function(size, decimals) {
+    return kbn.toDuration(size, decimals, 'second');
   };
 
   ///// FORMAT MENU /////

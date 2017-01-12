@@ -8,29 +8,46 @@ import (
 
 type AlertStateType string
 type AlertSeverityType string
+type NoDataOption string
+type ExecutionErrorOption string
 
 const (
-	AlertStateUnknown        AlertStateType = "unknown"
-	AlertStateExeuctionError AlertStateType = "execution_error"
-	AlertStatePaused         AlertStateType = "paused"
-	AlertStateCritical       AlertStateType = "critical"
-	AlertStateWarning        AlertStateType = "warning"
-	AlertStateOK             AlertStateType = "ok"
+	AlertStateNoData   AlertStateType = "no_data"
+	AlertStatePaused   AlertStateType = "paused"
+	AlertStateAlerting AlertStateType = "alerting"
+	AlertStateOK       AlertStateType = "ok"
+	AlertStatePending  AlertStateType = "pending"
+)
+
+const (
+	NoDataSetNoData   NoDataOption = "no_data"
+	NoDataSetAlerting NoDataOption = "alerting"
+	NoDataKeepState   NoDataOption = "keep_state"
+)
+
+const (
+	ExecutionErrorSetAlerting ExecutionErrorOption = "alerting"
+	ExecutionErrorKeepState   ExecutionErrorOption = "keep_state"
 )
 
 func (s AlertStateType) IsValid() bool {
-	return s == AlertStateOK || s == AlertStateUnknown || s == AlertStateExeuctionError || s == AlertStatePaused || s == AlertStateCritical || s == AlertStateWarning
+	return s == AlertStateOK || s == AlertStateNoData || s == AlertStatePaused || s == AlertStatePending
 }
 
-const (
-	AlertSeverityCritical AlertSeverityType = "critical"
-	AlertSeverityWarning  AlertSeverityType = "warning"
-	AlertSeverityInfo     AlertSeverityType = "info"
-	AlertSeverityOK       AlertSeverityType = "ok"
-)
+func (s NoDataOption) IsValid() bool {
+	return s == NoDataSetNoData || s == NoDataSetAlerting || s == NoDataKeepState
+}
 
-func (s AlertSeverityType) IsValid() bool {
-	return s == AlertSeverityCritical || s == AlertSeverityInfo || s == AlertSeverityWarning
+func (s NoDataOption) ToAlertState() AlertStateType {
+	return AlertStateType(s)
+}
+
+func (s ExecutionErrorOption) IsValid() bool {
+	return s == ExecutionErrorSetAlerting || s == ExecutionErrorKeepState
+}
+
+func (s ExecutionErrorOption) ToAlertState() AlertStateType {
+	return AlertStateType(s)
 }
 
 type Alert struct {
@@ -41,7 +58,7 @@ type Alert struct {
 	PanelId        int64
 	Name           string
 	Message        string
-	Severity       AlertSeverityType
+	Severity       string
 	State          AlertStateType
 	Handler        int64
 	Silenced       bool
@@ -113,11 +130,19 @@ type SaveAlertsCommand struct {
 	Alerts []*Alert
 }
 
+type PauseAlertCommand struct {
+	OrgId   int64
+	AlertId int64
+	Paused  bool
+}
+
 type SetAlertStateCommand struct {
-	AlertId   int64
-	OrgId     int64
-	State     AlertStateType
-	Error     string
+	AlertId  int64
+	OrgId    int64
+	State    AlertStateType
+	Error    string
+	EvalData *simplejson.Json
+
 	Timestamp time.Time
 }
 
@@ -131,6 +156,7 @@ type GetAlertsQuery struct {
 	State       []string
 	DashboardId int64
 	PanelId     int64
+	Limit       int64
 
 	Result []*Alert
 }
@@ -143,4 +169,19 @@ type GetAlertByIdQuery struct {
 	Id int64
 
 	Result *Alert
+}
+
+type GetAlertStatesForDashboardQuery struct {
+	OrgId       int64
+	DashboardId int64
+
+	Result []*AlertStateInfoDTO
+}
+
+type AlertStateInfoDTO struct {
+	Id           int64          `json:"id"`
+	DashboardId  int64          `json:"dashboardId"`
+	PanelId      int64          `json:"panelId"`
+	State        AlertStateType `json:"state"`
+	NewStateDate time.Time      `json:"newStateDate"`
 }

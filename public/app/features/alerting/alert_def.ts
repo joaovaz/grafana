@@ -1,6 +1,6 @@
 ///<reference path="../../headers/common.d.ts" />
 
-
+import _ from 'lodash';
 import {
   QueryPartDef,
   QueryPart,
@@ -28,30 +28,36 @@ var evalFunctions = [
   {text: 'HAS NO VALUE' , value: 'no_value'}
 ];
 
+var evalOperators = [
+  {text: 'OR', value: 'or'},
+  {text: 'AND', value: 'and'},
+];
+
 var reducerTypes = [
   {text: 'avg()', value: 'avg'},
   {text: 'min()', value: 'min'},
   {text: 'max()', value: 'max'},
   {text: 'sum()' , value: 'sum'},
   {text: 'count()', value: 'count'},
+  {text: 'last()', value: 'last'},
+  {text: 'median()', value: 'median'},
 ];
 
 var noDataModes = [
-  {text: 'OK', value: 'ok'},
-  {text: 'Critical', value: 'critical'},
-  {text: 'Warning', value: 'warning'},
-  {text: 'Unknown', value: 'unknown'},
+  {text: 'Alerting', value: 'alerting'},
+  {text: 'No Data', value: 'no_data'},
+  {text: 'Keep Last State', value: 'keep_state'},
+];
+
+var executionErrorModes = [
+  {text: 'Alerting', value: 'alerting'},
+  {text: 'Keep Last State', value: 'keep_state'},
 ];
 
 function createReducerPart(model) {
   var def = new QueryPartDef({type: model.type, defaultParams: []});
   return new QueryPart(model, def);
 }
-
-var severityLevels = {
-  'critical': {text: 'Critical', iconClass: 'icon-gf icon-gf-critical', stateClass: 'alert-state-critical'},
-  'warning': {text: 'Warning', iconClass: 'icon-gf icon-gf-warning', stateClass: 'alert-state-warning'},
-};
 
 function getStateDisplayModel(state) {
   switch (state) {
@@ -62,23 +68,16 @@ function getStateDisplayModel(state) {
         stateClass: 'alert-state-ok'
       };
     }
-    case 'critical': {
+    case 'alerting': {
       return {
-        text: 'CRITICAL',
+        text: 'ALERTING',
         iconClass: 'icon-gf icon-gf-critical',
         stateClass: 'alert-state-critical'
       };
     }
-    case 'warning': {
+    case 'no_data': {
       return {
-        text: 'WARNING',
-        iconClass: 'icon-gf icon-gf-warning',
-        stateClass: 'alert-state-warning'
-      };
-    }
-    case 'unknown': {
-      return {
-        text: 'UNKNOWN',
+        text: 'NO DATA',
         iconClass: "fa fa-question",
         stateClass: 'alert-state-warning'
       };
@@ -98,7 +97,24 @@ function getStateDisplayModel(state) {
         stateClass: 'alert-state-paused'
       };
     }
+    case 'pending': {
+      return {
+        text: 'PENDING',
+        iconClass: "fa fa-exclamation",
+        stateClass: 'alert-state-warning'
+      };
+    }
   }
+}
+
+function joinEvalMatches(matches, seperator: string) {
+  return _.reduce(matches, (res, ev)=> {
+    if (ev.Metric !== undefined && ev.Value !== undefined) {
+      res.push(ev.Metric + "=" + ev.Value);
+    }
+
+    return res;
+  }, []).join(seperator);
 }
 
 export default {
@@ -106,8 +122,10 @@ export default {
   getStateDisplayModel: getStateDisplayModel,
   conditionTypes: conditionTypes,
   evalFunctions: evalFunctions,
-  severityLevels: severityLevels,
+  evalOperators: evalOperators,
   noDataModes: noDataModes,
+  executionErrorModes: executionErrorModes,
   reducerTypes: reducerTypes,
   createReducerPart: createReducerPart,
+  joinEvalMatches: joinEvalMatches,
 };

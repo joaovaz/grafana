@@ -8,7 +8,6 @@ import (
 	"github.com/grafana/grafana/pkg/middleware"
 	"github.com/grafana/grafana/pkg/models"
 	"github.com/grafana/grafana/pkg/services/alerting"
-	"github.com/grafana/grafana/pkg/services/annotations"
 )
 
 func ValidateOrgAlert(c *middleware.Context) {
@@ -26,13 +25,37 @@ func ValidateOrgAlert(c *middleware.Context) {
 	}
 }
 
-// GET /api/alerts/rules/
+func GetAlertStatesForDashboard(c *middleware.Context) Response {
+	dashboardId := c.QueryInt64("dashboardId")
+
+	if dashboardId == 0 {
+		return ApiError(400, "Missing query parameter dashboardId", nil)
+	}
+
+	query := models.GetAlertStatesForDashboardQuery{
+		OrgId:       c.OrgId,
+		DashboardId: c.QueryInt64("dashboardId"),
+	}
+
+	if err := bus.Dispatch(&query); err != nil {
+		return ApiError(500, "Failed to fetch alert states", err)
+	}
+
+	return Json(200, query.Result)
+}
+
+// GET /api/alerts
 func GetAlerts(c *middleware.Context) Response {
 	query := models.GetAlertsQuery{
 		OrgId:       c.OrgId,
-		State:       c.QueryStrings("state"),
 		DashboardId: c.QueryInt64("dashboardId"),
 		PanelId:     c.QueryInt64("panelId"),
+		Limit:       c.QueryInt64("limit"),
+	}
+
+	states := c.QueryStrings("state")
+	if len(states) > 0 {
+		query.State = states
 	}
 
 	if err := bus.Dispatch(&query); err != nil {
@@ -50,7 +73,6 @@ func GetAlerts(c *middleware.Context) Response {
 			Name:           alert.Name,
 			Message:        alert.Message,
 			State:          alert.State,
-			Severity:       alert.Severity,
 			EvalDate:       alert.EvalDate,
 			NewStateDate:   alert.NewStateDate,
 			ExecutionError: alert.ExecutionError,
@@ -81,6 +103,10 @@ func GetAlerts(c *middleware.Context) Response {
 
 // POST /api/alerts/test
 func AlertTest(c *middleware.Context, dto dtos.AlertTestCommand) Response {
+	if _, idErr := dto.Dashboard.Get("id").Int64(); idErr != nil {
+		return ApiError(400, "The dashboard needs to be saved at least once before you can test an alert rule", nil)
+	}
+
 	backendCmd := alerting.AlertTestCommand{
 		OrgId:     c.OrgId,
 		Dashboard: dto.Dashboard,
@@ -97,7 +123,8 @@ func AlertTest(c *middleware.Context, dto dtos.AlertTestCommand) Response {
 	res := backendCmd.Result
 
 	dtoRes := &dtos.AlertTestResult{
-		Firing: res.Firing,
+		Firing:         res.Firing,
+		ConditionEvals: res.ConditionEvals,
 	}
 
 	if res.Error != nil {
@@ -153,10 +180,10 @@ func GetAlertNotifications(c *middleware.Context) Response {
 		return ApiError(500, "Failed to get alert notifications", err)
 	}
 
-	var result []dtos.AlertNotification
+	result := make([]*dtos.AlertNotification, 0)
 
 	for _, notification := range query.Result {
-		result = append(result, dtos.AlertNotification{
+		result = append(result, &dtos.AlertNotification{
 			Id:        notification.Id,
 			Name:      notification.Name,
 			Type:      notification.Type,
@@ -220,7 +247,6 @@ func NotificationTest(c *middleware.Context, dto dtos.NotificationTestCommand) R
 	cmd := &alerting.NotificationTestCommand{
 		Name:     dto.Name,
 		Type:     dto.Type,
-		Severity: dto.Severity,
 		Settings: dto.Settings,
 	}
 
@@ -231,69 +257,30 @@ func NotificationTest(c *middleware.Context, dto dtos.NotificationTestCommand) R
 	return ApiSuccess("Test notification sent")
 }
 
-func GetAlertHistory(c *middleware.Context) Response {
-	alertId, err := getAlertIdForRequest(c)
-	if err != nil {
-		return ApiError(400, "Invalid request", err)
-	}
-
-	query := &annotations.ItemQuery{
-		AlertId: alertId,
-		Type:    annotations.AlertType,
+//POST /api/alerts/:alertId/pause
+func PauseAlert(c *middleware.Context, dto dtos.PauseAlertCommand) Response {
+	cmd := models.PauseAlertCommand{
 		OrgId:   c.OrgId,
-		Limit:   c.QueryInt64("limit"),
+		AlertId: c.ParamsInt64("alertId"),
+		Paused:  dto.Paused,
 	}
 
-	repo := annotations.GetRepository()
-
-	items, err := repo.Find(query)
-	if err != nil {
-		return ApiError(500, "Failed to get history for alert", err)
+	if err := bus.Dispatch(&cmd); err != nil {
+		return ApiError(500, "", err)
 	}
 
-	var result []dtos.AlertHistory
-	for _, item := range items {
-		result = append(result, dtos.AlertHistory{
-			AlertId:   item.AlertId,
-			Timestamp: item.Timestamp,
-			Data:      item.Data,
-			NewState:  item.NewState,
-			Text:      item.Text,
-			Metric:    item.Metric,
-			Title:     item.Title,
-		})
+	var response models.AlertStateType = models.AlertStatePending
+	pausedState := "un paused"
+	if cmd.Paused {
+		response = models.AlertStatePaused
+		pausedState = "paused"
+	}
+
+	result := map[string]interface{}{
+		"alertId": cmd.AlertId,
+		"state":   response,
+		"message": "alert " + pausedState,
 	}
 
 	return Json(200, result)
-}
-
-func getAlertIdForRequest(c *middleware.Context) (int64, error) {
-	alertId := c.QueryInt64("alertId")
-	panelId := c.QueryInt64("panelId")
-	dashboardId := c.QueryInt64("dashboardId")
-
-	if alertId == 0 && dashboardId == 0 && panelId == 0 {
-		return 0, fmt.Errorf("Missing alertId or dashboardId and panelId")
-	}
-
-	if alertId == 0 {
-		//fetch alertId
-		query := models.GetAlertsQuery{
-			OrgId:       c.OrgId,
-			DashboardId: dashboardId,
-			PanelId:     panelId,
-		}
-
-		if err := bus.Dispatch(&query); err != nil {
-			return 0, err
-		}
-
-		if len(query.Result) != 1 {
-			return 0, fmt.Errorf("PanelId is not unique on dashboard")
-		}
-
-		alertId = query.Result[0].Id
-	}
-
-	return alertId, nil
 }
