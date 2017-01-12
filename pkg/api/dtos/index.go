@@ -26,4 +26,5 @@ type NavLink struct {
 	Url      string     `json:"url,omitempty"`
 	Divider  bool       `json:"divider,omitempty"`
 	Children []*NavLink `json:"children,omitempty"`
+  Target   string     `json:"target,omitempty"`
 }
