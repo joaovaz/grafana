@@ -8,6 +8,7 @@ import $ from 'jquery';
 
 import {Emitter, contextSrv, appEvents} from 'app/core/core';
 import {DashboardRow} from './row/row_model';
+import sortByKeys from 'app/core/utils/sort_by_keys';
 
 export class DashboardModel {
   id: any;
@@ -18,7 +19,7 @@ export class DashboardModel {
   style: any;
   timezone: any;
   editable: any;
-  sharedCrosshair: any;
+  graphTooltip: any;
   rows: DashboardRow[];
   time: any;
   timepicker: any;
@@ -37,7 +38,7 @@ export class DashboardModel {
   events: any;
   editMode: boolean;
 
-  constructor(data, meta) {
+  constructor(data, meta?) {
     if (!data) {
       data = {};
     }
@@ -52,8 +53,7 @@ export class DashboardModel {
     this.style = data.style || "dark";
     this.timezone = data.timezone || '';
     this.editable = data.editable !== false;
-    this.sharedCrosshair = data.sharedCrosshair || false;
-    this.sharedCrosshair = data.sharedCrosshair || false;
+    this.graphTooltip = data.graphTooltip || 0;
     this.hideControls = data.hideControls || false;
     this.hideDashboard = data.hideDashboard || false;
     this.time = data.time || { from: 'now-6h', to: 'now' };
@@ -110,7 +110,10 @@ export class DashboardModel {
     this.rows = _.map(rows, row => row.getSaveModel());
     this.templating.list = _.map(variables, variable => variable.getSaveModel ? variable.getSaveModel() : variable);
 
+    // make clone
     var copy = $.extend(true, {}, this);
+    //  sort clone
+    copy = sortByKeys(copy);
 
     // restore properties
     this.events = events;
@@ -270,6 +273,18 @@ export class DashboardModel {
     }
   }
 
+  cycleGraphTooltip() {
+    this.graphTooltip = (this.graphTooltip + 1) % 3;
+  }
+
+  sharedTooltipModeEnabled() {
+    return this.graphTooltip > 0;
+  }
+
+  sharedCrosshairModeOnly() {
+    return this.graphTooltip === 1;
+  }
+
   getRelativeTime(date) {
     date = moment.isMoment(date) ? date : moment(date);
 
@@ -300,7 +315,7 @@ export class DashboardModel {
     var i, j, k;
     var oldVersion = this.schemaVersion;
     var panelUpgrades = [];
-    this.schemaVersion = 13;
+    this.schemaVersion = 14;
 
     if (oldVersion === this.schemaVersion) {
       return;
@@ -603,6 +618,10 @@ export class DashboardModel {
           delete panel.grid.threshold2Color;
           delete panel.grid.thresholdLine;
         });
+      }
+
+      if (oldVersion < 14) {
+        this.graphTooltip = old.sharedCrosshair ? 1 : 0;
       }
 
       if (panelUpgrades.length === 0) {

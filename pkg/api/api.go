@@ -262,6 +262,7 @@ func Register(r *macaron.Macaron) {
 		})
 
 		r.Get("/alert-notifications", wrap(GetAlertNotifications))
+		r.Get("/alert-notifiers", wrap(GetAlertNotifiers))
 
 		r.Group("/alert-notifications", func() {
 			r.Post("/test", bind(dtos.NotificationTestCommand{}), wrap(NotificationTest))
@@ -289,6 +290,7 @@ func Register(r *macaron.Macaron) {
 		r.Get("/users/:id/quotas", wrap(GetUserQuotas))
 		r.Put("/users/:id/quotas/:target", bind(m.UpdateUserQuotaCmd{}), wrap(UpdateUserQuota))
 		r.Get("/stats", AdminGetStats)
+		r.Post("/pause-all-alerts", bind(dtos.PauseAllAlertsCommand{}), wrap(PauseAllAlerts))
 	}, reqGrafanaAdmin)
 
 	// rendering

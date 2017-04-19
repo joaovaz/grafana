@@ -12,7 +12,6 @@ import * as dateMath from 'app/core/utils/datemath';
 import {Subject} from 'vendor/npm/rxjs/Subject';
 
 class MetricsPanelCtrl extends PanelCtrl {
-  error: any;
   loading: boolean;
   datasource: any;
   datasourceName: any;
@@ -86,22 +85,23 @@ class MetricsPanelCtrl extends PanelCtrl {
     // load datasource service
     this.setTimeQueryStart();
     this.datasourceSrv.get(this.panel.datasource)
-      .then(this.issueQueries.bind(this))
-      .then(this.handleQueryResult.bind(this))
-      .catch(err => {
-        // if cancelled  keep loading set to true
-        if (err.cancelled) {
-          console.log('Panel request cancelled', err);
-          return;
-        }
+    .then(this.issueQueries.bind(this))
+    .then(this.handleQueryResult.bind(this))
+    .catch(err => {
+      // if cancelled  keep loading set to true
+      if (err.cancelled) {
+        console.log('Panel request cancelled', err);
+        return;
+      }
 
-        this.loading = false;
-        this.error = err.message || "Request Error";
-        this.inspector = {error: err};
-        this.events.emit('data-error', err);
-        console.log('Panel data error:', err);
-      });
+      this.loading = false;
+      this.error = err.message || "Request Error";
+      this.inspector = {error: err};
+      this.events.emit('data-error', err);
+      console.log('Panel data error:', err);
+    });
   }
+
 
   setTimeQueryStart() {
     this.timing.queryStart = new Date().getTime();
@@ -191,6 +191,13 @@ class MetricsPanelCtrl extends PanelCtrl {
       return this.$q.when([]);
     }
 
+    // make shallow copy of scoped vars,
+    // and add built in variables interval and interval_ms
+    var scopedVars = Object.assign({}, this.panel.scopedVars, {
+      "__interval":     {text: this.interval,   value: this.interval},
+      "__interval_ms":  {text: this.intervalMs, value: this.intervalMs},
+    });
+
 
     var finalTarget = [];
     for (var i = 0; i< this.panel.targets.length; i++){
@@ -210,7 +217,7 @@ class MetricsPanelCtrl extends PanelCtrl {
       targets: finalTarget,
       format: this.panel.renderer === 'png' ? 'png' : 'json',
       maxDataPoints: this.resolution,
-      scopedVars: this.panel.scopedVars,
+      scopedVars: scopedVars,
       cacheTimeout: this.panel.cacheTimeout
     };
 
