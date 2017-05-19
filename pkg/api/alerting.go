@@ -75,6 +75,7 @@ func GetAlerts(c *middleware.Context) Response {
 			State:          alert.State,
 			NewStateDate:   alert.NewStateDate,
 			ExecutionError: alert.ExecutionError,
+			EvalData:       alert.EvalData,
 		})
 	}
 
@@ -120,10 +121,10 @@ func AlertTest(c *middleware.Context, dto dtos.AlertTestCommand) Response {
 	}
 
 	res := backendCmd.Result
-
 	dtoRes := &dtos.AlertTestResult{
 		Firing:         res.Firing,
 		ConditionEvals: res.ConditionEvals,
+		State:          res.Rule.State,
 	}
 
 	if res.Error != nil {

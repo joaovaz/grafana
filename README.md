@@ -1,4 +1,4 @@
-[Grafana](http://grafana.org) [![Circle CI](https://circleci.com/gh/grafana/grafana.svg?style=svg)](https://circleci.com/gh/grafana/grafana) [![Coverage Status](https://coveralls.io/repos/grafana/grafana/badge.png)](https://coveralls.io/r/grafana/grafana)
+[Grafana](http://grafana.org) [![Circle CI](https://circleci.com/gh/grafana/grafana.svg?style=svg)](https://circleci.com/gh/grafana/grafana) 
 ================
 [Website](http://grafana.org) |
 [Twitter](https://twitter.com/grafana) |
@@ -66,7 +66,7 @@ There are no dependencies except an external time series data store. For dashboa
 database (sqlite3) or you can use an external SQL data base like MySQL or Postgres.
 
 ## Installation
-Head to [grafana.org](http://docs.grafana.org/installation/) and [download](http://grafana.org/download/)
+Head to [grafana.org](http://docs.grafana.org/installation/) and [download](https://grafana.com/get)
 the latest release.
 
 If you have any problems please read the [troubleshooting guide](http://docs.grafana.org/installation/troubleshooting/).
@@ -80,7 +80,7 @@ the latest master builds [here](http://grafana.org/builds)
 
 ### Dependencies
 
-- Go 1.7.3
+- Go 1.8
 - NodeJS v4+
 
 ### Get Code
@@ -110,7 +110,7 @@ go run build.go build
 
 ### Building frontend assets
 
-To build less to css for the frontend you will need a recent version of **node (v4+)**,
+To build less to css for the frontend you will need a recent version of **node (v6+)**,
 npm (v2.5.0) and grunt (v0.4.5). Run the following:
 
 ```bash
