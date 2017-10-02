@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana/pkg/api/cloudwatch"
+  "github.com/grafana/grafana/pkg/api/azure"
 	"github.com/grafana/grafana/pkg/bus"
 	"github.com/grafana/grafana/pkg/log"
 	"github.com/grafana/grafana/pkg/metrics"
@@ -99,10 +100,12 @@ func getDatasource(id int64, orgId int64) (*m.DataSource, error) {
 }
 
 func ProxyDataSourceRequest(c *middleware.Context) {
+
+
 	c.TimeRequest(metrics.M_DataSource_ProxyReq_Timer)
 
 	ds, err := getDatasource(c.ParamsInt64(":id"), c.OrgId)
-
+  dataproxyLogger.Info(ds.Type)
 	if err != nil {
 		c.JsonApiErr(500, "Unable to load datasource meta data", err)
 		return
@@ -119,6 +122,11 @@ func ProxyDataSourceRequest(c *middleware.Context) {
 		cloudwatch.HandleRequest(c, ds)
 		return
 	}
+
+  if ds.Type == m.DS_AZURE {
+    azure.HandleRequest(c, ds)
+    return
+  }
 
 	targetUrl, _ := url.Parse(ds.Url)
 	if !checkWhiteList(c, targetUrl.Host) {

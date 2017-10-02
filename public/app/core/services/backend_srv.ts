@@ -134,7 +134,7 @@ export class BackendSrv {
 
     var requestIsLocal = !options.url.match(/^http/);
     var firstAttempt = options.retry === 0;
-
+    console.log("req: "+requestIsLocal);
     if (requestIsLocal) {
       if (this.contextSrv.user && this.contextSrv.user.orgId) {
         options.headers = options.headers || {};
