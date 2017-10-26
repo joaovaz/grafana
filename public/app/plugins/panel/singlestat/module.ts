@@ -13,7 +13,6 @@ import {MetricsPanelCtrl} from 'app/plugins/sdk';
 
 class SingleStatCtrl extends MetricsPanelCtrl {
   static templateUrl = 'module.html';
-
   dataType = 'timeseries';
   series: any[];
   data: any;
@@ -81,7 +80,6 @@ class SingleStatCtrl extends MetricsPanelCtrl {
   constructor($scope, $injector, private $location, private linkSrv) {
     super($scope, $injector);
     _.defaults(this.panel, this.panelDefaults);
-
     this.events.on('data-received', this.onDataReceived.bind(this));
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('data-snapshot-load', this.onDataReceived.bind(this));
@@ -124,25 +122,27 @@ class SingleStatCtrl extends MetricsPanelCtrl {
   }
 
 
+  maxGaugeValueSource() {
+    if (this.panel.gauge.maxValuedt) {
+      console.log(this.panel.gauge.maxValuedt);
+      this.panel.gauge.sourceValue = true;
+      this.datasourceSrv.get(this.panel.datasource)
+        .then(this.issueQueriesSingleTarget.bind(this))
+        .then(this.handleQueryResultSingleTarget.bind(this))
+        .catch(err => {
+          // if cancelled  keep loading set to true
+          if (err.cancelled) {
+            console.log('Panel request cancelled', err);
+            return;
+          }
 
-  maxGaugeValueSource(){
-    this.panel.gauge.sourceValue = true;
-    this.datasourceSrv.get(this.panel.datasource)
-      .then(this.issueQueriesSingleTarget.bind(this))
-      .then(this.handleQueryResultSingleTarget.bind(this))
-      .catch(err => {
-        // if cancelled  keep loading set to true
-        if (err.cancelled) {
-          console.log('Panel request cancelled', err);
-          return;
-        }
-
-        this.loading = false;
-        this.error = err.message || "Request Error";
-        this.inspector = {error: err};
-        this.events.emit('data-error', err);
-        console.log('Panel data error:', err);
-      });
+          this.loading = false;
+          this.error = err.message || "Request Error";
+          this.inspector = {error: err};
+          this.events.emit('data-error', err);
+          console.log('Panel data error:', err);
+        });
+    }
   }
 
   issueQueriesSingleTarget(datasource) {
@@ -163,7 +163,7 @@ class SingleStatCtrl extends MetricsPanelCtrl {
       var metricsQuery = {
         panelId: this.panel.id,
         range: this.range,
-        rangeRaw: this.rangeRaw,
+        rangeRaw: this.range.raw,
         interval: this.interval,
         targets: tet,
         format: this.panel.renderer === 'png' ? 'png' : 'json',
@@ -418,7 +418,7 @@ class SingleStatCtrl extends MetricsPanelCtrl {
     if (data.value === null || data.value === void 0) {
       data.valueFormated = "no value";
     }
-  };
+  }
 
 
 
@@ -580,9 +580,9 @@ class SingleStatCtrl extends MetricsPanelCtrl {
     }
 
     function getValueText() {
-      var result = panel.prefix ? panel.prefix : '';
+      var result = panel.prefix ? templateSrv.replace(panel.prefix, data.scopedVars) : '';
       result += data.valueFormatted;
-      result += panel.postfix ? panel.postfix : '';
+      result += panel.postfix ? templateSrv.replace(panel.postfix, data.scopedVars) : '';
 
       return result;
     }

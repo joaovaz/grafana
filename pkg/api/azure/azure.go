@@ -441,7 +441,8 @@ func getMetricsFromMetricDefinitions(metricDefinitions MetricDefinitions, from s
   }
   dif := toDate.Sub(fromDate)
   var timeGrain string
-  if (dif > 25) {
+  difHours := dif.Hours()
+  if (difHours > 25) {
     timeGrain = "PT1H";
   }else {
     timeGrain = "PT1M";
@@ -562,13 +563,13 @@ func handleMarginalQuery(req *cwRequest, c *middleware.Context){
     c.JsonApiErr(500, error2,errors.New(error2))
     return
   }
-
   //gets time diference in days to choose granularity
   from,_ := time.Parse(time.RFC3339, req.Headers["From"][0])
   to,_ := time.Parse(time.RFC3339,req.Headers["To"][0])
   dif := to.Sub(from)
+  difHours := dif.Hours()
   var timeGrain string
-  if (dif > 25) {
+  if (difHours > 25) {
     timeGrain = "'PT1H'";
   }else {
     timeGrain = "'PT1M'";

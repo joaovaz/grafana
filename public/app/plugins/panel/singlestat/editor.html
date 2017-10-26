@@ -128,7 +128,7 @@
       <div class="gf-form"><input type="radio" ng-model="ctrl.panel.gauge.maxChoice" value="seriesValue"><label
         class="gf-form-label width-12">Max from datasource</label><select ng-model="ctrl.panel.gauge.maxValuedt"
                                                                           ng-disabled="ctrl.panel.gauge.maxChoice == 'singleValue'"
-                                                                          ng-options="y.refId for y in {{ctrl.panel.targets}} | filter:{maxValueDtOnly: true} track by y.refId"
+                                                                          ng-options="y.refId for y in ctrl.panel.targets | filter:{maxValueDtOnly: true} track by y.refId"
                                                                           ng-blur="ctrl.maxGaugeValueSource()"
                                                                           class="input-mini"></select></div>
       <gf-form-switch class="gf-form" label-class="width-10" label="Threshold labels"

@@ -15,22 +15,16 @@ var panelTemplate = `
         <i class="fa"></i>
         <span class="panel-info-corner-inner"></span>
       </span>
-
       <span class="panel-loading" ng-show="ctrl.loading">
         <i class="fa fa-spinner fa-spin"></i>
-      </span>
-      
-      
+              </span>      
       <div class="panel-title-container drag-handle" panel-menu></div>
-      
-    </div>
-
+      </div>
     <div class="panel-content">
       <ng-transclude></ng-transclude>
     </div>
     <panel-resizer></panel-resizer>
   </div>
-
   <div class="panel-full-edit" ng-if="ctrl.editMode">
     <div class="tabbed-view tabbed-view--panel-edit">
       <div class="tabbed-view-header">
