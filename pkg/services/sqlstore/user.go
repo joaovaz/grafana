@@ -28,7 +28,6 @@ func init() {
 	bus.AddHandler("sql", SearchUsers)
 	bus.AddHandler("sql", GetUserOrgList)
 	bus.AddHandler("sql", DeleteUser)
-	bus.AddHandler("sql", SetUsingOrg)
 	bus.AddHandler("sql", UpdateUserPermissions)
 	bus.AddHandler("sql", SetUserHelpFlag)
 }
@@ -97,6 +96,7 @@ func CreateUser(cmd *m.CreateUserCommand) error {
 			EmailVerified: cmd.EmailVerified,
 			Created:       time.Now(),
 			Updated:       time.Now(),
+			LastSeenAt:    time.Now().AddDate(-10, 0, 0),
 		}
 
 		if len(cmd.Password) > 0 {

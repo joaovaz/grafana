@@ -18,7 +18,7 @@ const  template = `
   <div class="modal-content text-center">
 
     <div class="confirm-modal-text">
-      Do you want to save you changes?
+      Do you want to save your changes?
     </div>
 
     <div class="confirm-modal-buttons">
@@ -35,7 +35,7 @@ export class UnsavedChangesModalCtrl {
   dismiss: () => void;
 
   /** @ngInject */
-  constructor(private $rootScope, private unsavedChangesSrv) {
+  constructor(private unsavedChangesSrv) {
   }
 
   discard() {

@@ -168,15 +168,16 @@ export default class TimeSeries {
         if (currentValue < this.stats.min) {
           this.stats.min = currentValue;
         }
-        if (this.stats.first === null){
+
+        if (this.stats.first === null) {
           this.stats.first = currentValue;
-        }else{
+        } else {
           if (previousValue > currentValue) {   // counter reset
             previousDeltaUp = false;
             if (i === this.datapoints.length-1) {  // reset on last
                 this.stats.delta += currentValue;
             }
-          }else{
+          } else {
             if (previousDeltaUp) {
               this.stats.delta += currentValue - previousValue;    // normal increment
             } else {
@@ -202,7 +203,7 @@ export default class TimeSeries {
     if (this.stats.max === -Number.MAX_VALUE) { this.stats.max = null; }
     if (this.stats.min === Number.MAX_VALUE) { this.stats.min = null; }
 
-    if (result.length) {
+    if (result.length && !this.allIsNull) {
       this.stats.avg = (this.stats.total / nonNulls);
       this.stats.current = result[result.length-1][1];
       if (this.stats.current === null && result.length > 1) {
@@ -227,6 +228,9 @@ export default class TimeSeries {
   }
 
   formatValue(value) {
+    if (!_.isFinite(value)) {
+      value = null; // Prevent NaN formatting
+    }
     return this.valueFormater(value, this.decimals, this.scaledDecimals);
   }
 

@@ -1,12 +1,7 @@
-///<reference path="../../../headers/common.d.ts" />
-
-import kbn from 'app/core/utils/kbn';
 import angular from 'angular';
-import coreModule from 'app/core/core_module';
-import appEvents from 'app/core/app_events';
-import config from 'app/core/config';
-import _ from 'lodash';
+import {saveAs} from 'file-saver';
 
+import coreModule from 'app/core/core_module';
 import {DashboardExporter} from './exporter';
 
 export class DashExportCtrl {
@@ -15,7 +10,7 @@ export class DashExportCtrl {
   dismiss: () => void;
 
   /** @ngInject */
-  constructor(private backendSrv, private dashboardSrv, datasourceSrv, private $scope) {
+  constructor(private dashboardSrv, datasourceSrv, private $scope) {
     this.exporter = new DashboardExporter(datasourceSrv);
 
     this.exporter.makeExportable(this.dashboardSrv.getCurrent()).then(dash => {
@@ -26,9 +21,8 @@ export class DashExportCtrl {
   }
 
   save() {
-    var blob = new Blob([angular.toJson(this.dash, true)], { type: "application/json;charset=utf-8" });
-    var wnd: any = window;
-    wnd.saveAs(blob, this.dash.title + '-' + new Date().getTime() + '.json');
+    var blob = new Blob([angular.toJson(this.dash, true)], {type: 'application/json;charset=utf-8'});
+    saveAs(blob, this.dash.title + '-' + new Date().getTime() + '.json');
   }
 
   saveJson() {
@@ -48,7 +42,7 @@ export function dashExportDirective() {
     controller: DashExportCtrl,
     bindToController: true,
     controllerAs: 'ctrl',
-    scope: {dismiss: "&"}
+    scope: {dismiss: '&'},
   };
 }
 

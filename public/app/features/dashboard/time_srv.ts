@@ -1,7 +1,5 @@
 ///<reference path="../../headers/common.d.ts" />
 
-import config from 'app/core/config';
-import angular from 'angular';
 import moment from 'moment';
 import _ from 'lodash';
 import coreModule from 'app/core/core_module';
@@ -198,9 +196,11 @@ class TimeSrv {
       to: moment.isMoment(this.time.to) ? moment(this.time.to) : this.time.to,
     };
 
+    var timezone = this.dashboard && this.dashboard.getTimezone();
+
     return {
-      from: dateMath.parse(raw.from, false),
-      to: dateMath.parse(raw.to, true),
+      from: dateMath.parse(raw.from, false, timezone),
+      to: dateMath.parse(raw.to, true, timezone),
       raw: raw
     };
   }

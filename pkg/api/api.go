@@ -21,7 +21,7 @@ func (hs *HttpServer) registerRoutes() {
 	// automatically set HEAD for every GET
 	macaronR.SetAutoHead(true)
 
-	r := newRouteRegister(middleware.RequestMetrics)
+	r := newRouteRegister(middleware.RequestMetrics, middleware.RequestTracing)
 
 	// not logged in views
 	r.Get("/", reqSignedIn, Index)
@@ -267,7 +267,7 @@ func (hs *HttpServer) registerRoutes() {
 
 		apiRoute.Group("/alerts", func(alertsRoute RouteRegister) {
 			alertsRoute.Post("/test", bind(dtos.AlertTestCommand{}), wrap(AlertTest))
-			alertsRoute.Post("/:alertId/pause", bind(dtos.PauseAlertCommand{}), wrap(PauseAlert), reqEditorRole)
+			alertsRoute.Post("/:alertId/pause", reqEditorRole, bind(dtos.PauseAlertCommand{}), wrap(PauseAlert))
 			alertsRoute.Get("/:alertId", ValidateOrgAlert, wrap(GetAlert))
 			alertsRoute.Get("/", wrap(GetAlerts))
 			alertsRoute.Get("/states-for-dashboard", wrap(GetAlertStatesForDashboard))
@@ -289,6 +289,10 @@ func (hs *HttpServer) registerRoutes() {
 
 		apiRoute.Group("/annotations", func(annotationsRoute RouteRegister) {
 			annotationsRoute.Post("/", bind(dtos.PostAnnotationsCmd{}), wrap(PostAnnotation))
+			annotationsRoute.Delete("/:annotationId", wrap(DeleteAnnotationById))
+			annotationsRoute.Put("/:annotationId", bind(dtos.UpdateAnnotationsCmd{}), wrap(UpdateAnnotation))
+			annotationsRoute.Delete("/region/:regionId", wrap(DeleteAnnotationRegion))
+			annotationsRoute.Post("/graphite", bind(dtos.PostGraphiteAnnotationsCmd{}), wrap(PostGraphiteAnnotation))
 		}, reqEditorRole)
 
 		// error test

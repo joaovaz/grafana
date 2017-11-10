@@ -18,6 +18,8 @@ const (
   DS_AZURE         =  "azure-monitor-datasource"
 	DS_KAIROSDB      = "kairosdb"
 	DS_PROMETHEUS    = "prometheus"
+	DS_POSTGRES      = "postgres"
+	DS_MYSQL         = "mysql"
 	DS_ACCESS_DIRECT = "direct"
 	DS_ACCESS_PROXY  = "proxy"
 )
@@ -55,20 +57,34 @@ type DataSource struct {
 }
 
 var knownDatasourcePlugins map[string]bool = map[string]bool{
-	DS_ES:          true,
-	DS_GRAPHITE:    true,
-	DS_INFLUXDB:    true,
-	DS_INFLUXDB_08: true,
-	DS_KAIROSDB:    true,
-	DS_CLOUDWATCH:  true,
-  DS_AZURE:       true,
-	DS_PROMETHEUS:  true,
-	DS_OPENTSDB:    true,
-	"opennms":      true,
-	"druid":        true,
-	"dalmatinerdb": true,
-	"gnocci":       true,
-	"zabbix":       true,
+	DS_ES:                                 true,
+	DS_GRAPHITE:                           true,
+	DS_INFLUXDB:                           true,
+	DS_INFLUXDB_08:                        true,
+	DS_KAIROSDB:                           true,
+	DS_CLOUDWATCH:                         true,
+	DS_AZURE:       		       true,
+	DS_PROMETHEUS:                         true,
+	DS_OPENTSDB:                           true,
+	DS_POSTGRES:                           true,
+	DS_MYSQL:                              true,
+	"opennms":                             true,
+	"druid":                               true,
+	"dalmatinerdb":                        true,
+	"gnocci":                              true,
+	"zabbix":                              true,
+	"newrelic-app":                        true,
+	"grafana-datadog-datasource":          true,
+	"grafana-simple-json":                 true,
+	"grafana-splunk-datasource":           true,
+	"udoprog-heroic-datasource":           true,
+	"grafana-openfalcon-datasource":       true,
+	"opennms-datasource":                  true,
+	"rackerlabs-blueflood-datasource":     true,
+	"crate-datasource":                    true,
+	"ayoungprogrammer-finance-datasource": true,
+	"monasca-datasource":                  true,
+	"vertamedia-clickhouse-datasource":    true,
 }
 
 func IsKnownDataSourcePlugin(dsType string) bool {

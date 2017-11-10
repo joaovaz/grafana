@@ -1,8 +1,7 @@
-///<reference path="../../../headers/common.d.ts" />
 import angular from 'angular';
 import _ from 'lodash';
 import $ from 'jquery';
-import d3 from 'd3';
+import d3 from 'vendor/d3/d3';
 import {contextSrv} from 'app/core/core';
 import {tickStep} from 'app/core/utils/ticks';
 
@@ -143,7 +142,6 @@ function drawLegendValues(elem, colorScale, rangeFrom, rangeTo, maxValue, minVal
     return;
   }
 
-  let legendValueDomain = _.sortBy(colorScale.domain());
   let legendValueScale = d3.scaleLinear()
     .domain([0, rangeTo])
     .range([0, legendWidth]);
@@ -154,8 +152,9 @@ function drawLegendValues(elem, colorScale, rangeFrom, rangeTo, maxValue, minVal
     .tickSize(2);
 
   let colorRect = legendElem.find(":first-child");
-  let posY = colorRect.height() + 2;
+  let posY = getSvgElemHeight(legendElem) + 2;
   let posX = getSvgElemX(colorRect);
+
   d3.select(legendElem.get(0)).append("g")
     .attr("class", "axis")
     .attr("transform", "translate(" + posX + "," + posY + ")")
@@ -257,7 +256,16 @@ function getOpacityScale(options, maxValue, minValue = 0) {
 function getSvgElemX(elem) {
   let svgElem = elem.get(0);
   if (svgElem && svgElem.x && svgElem.x.baseVal) {
-    return elem.get(0).x.baseVal.value;
+    return svgElem.x.baseVal.value;
+  } else {
+    return 0;
+  }
+}
+
+function getSvgElemHeight(elem) {
+  let svgElem = elem.get(0);
+  if (svgElem && svgElem.height && svgElem.height.baseVal) {
+    return svgElem.height.baseVal.value;
   } else {
     return 0;
   }

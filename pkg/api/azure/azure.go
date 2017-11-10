@@ -15,6 +15,9 @@ import (
   "sync"
   "net/url"
   "sort"
+	b64 "encoding/base64"
+	"crypto/des"
+	"fmt"
 
 )
 var (
@@ -113,6 +116,7 @@ func init() {
     "DefaultQuery":         handleDefaultQuery,
     "MarginalQuery":        handleMarginalQuery,
     "LegacyQuery":          handleLegacyQuery,
+	"MetricsDec":			handleMetricsDec,
   }
 }
 
@@ -368,7 +372,8 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
       c.JsonApiErr(500, "Error decoding response", erre)
       return
     }
-
+	  fmt.Println("a primeira")
+	  fmt.Println(bodyJson)
     responses,errormfd := getMetricsFromMetricDefinitions(bodyJson, req.Headers["From"][0], req.Headers["Till"][0])
     if(errormfd!=""){
       c.JsonApiErr(500,errormfd, errors.New(errormfd))
@@ -384,6 +389,7 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
     c.JSON(200, sdmetrics)
     return
   }else{
+	  fmt.Println("a segunda")
     responses,errormfd := getMetricsFromMetricDefinitions(tokenInfo, req.Headers["From"][0], req.Headers["Till"][0])
     if(errormfd!=""){
       c.JsonApiErr(500,errormfd, errors.New(errormfd))
@@ -398,6 +404,52 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
     return
   }
 }
+
+func handleMetricsDec(req *cwRequest, c *middleware.Context){
+
+	metricsLicenseEncrypted := req.DataSource.JsonData.Get("content").MustString()
+	sDec, _ := b64.StdEncoding.DecodeString(metricsLicenseEncrypted)
+	destext, erer2 := DesDecrypt(sDec)
+	if erer2 != nil {
+		c.JsonApiErr(500,erer2.Error(), errors.New(erer2.Error()))
+	}
+	res2B:= string(destext)
+	 c.JSON(200, res2B)
+	return
+}
+
+
+func ZeroUnPadding(origData []byte) []byte {
+	return bytes.TrimFunc(origData,
+		func(r rune) bool {
+			return r == rune(0)
+		})
+}
+
+
+func DesDecrypt(src []byte) ([]byte, error) {
+	key := []byte("5e8487e6")
+	block, err := des.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, len(src))
+	dst := out
+	bs := block.BlockSize()
+	if len(src)%bs != 0 {
+		return nil, errors.New("crypto/cipher: input not full blocks")
+	}
+	for len(src) > 0 {
+		block.Decrypt(dst, src[:bs])
+		src = src[bs:]
+		dst = dst[bs:]
+	}
+	out = ZeroUnPadding(out)
+
+
+	return out, nil
+}
+
 
 func metricsFromLegacyHandler(response []map[string]interface{}, timefrom string, timetill string,target string) (SingleData,string){
 
@@ -463,6 +515,8 @@ func getMetrics(metricDefinitions MetricDefinitions,from string, till string, ti
   var responses []map[string]interface{}
   for _,query := range queries{
     client := &http.Client{Timeout: 20 * time.Second}
+	  fmt.Println(3456)
+	  fmt.Println(query)
     requ, erra := http.NewRequest("GET", query, nil)
     if erra != nil {
       dataproxyLogger.Error("Error generating new get request for: "+query)

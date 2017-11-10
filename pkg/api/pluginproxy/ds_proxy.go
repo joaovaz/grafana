@@ -15,8 +15,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/grafana/grafana/pkg/api/cloudwatch"
-  "github.com/grafana/grafana/pkg/api/azure"
+	"github.com/opentracing/opentracing-go"
+	"github.com/grafana/grafana/pkg/api/azure"
 	"github.com/grafana/grafana/pkg/log"
 	"github.com/grafana/grafana/pkg/middleware"
 	m "github.com/grafana/grafana/pkg/models"
@@ -62,20 +62,15 @@ func NewDataSourceProxy(ds *m.DataSource, plugin *plugins.DataSourcePlugin, ctx 
 }
 
 func (proxy *DataSourceProxy) HandleRequest() {
-	if proxy.ds.Type == m.DS_CLOUDWATCH {
-		cloudwatch.HandleRequest(proxy.ctx, proxy.ds)
-		return
-	}
-  if proxy.ds.Type == m.DS_AZURE {
-    azure.HandleRequest(proxy.ctx, proxy.ds)
-    return
-  }
 
 	if err := proxy.validateRequest(); err != nil {
 		proxy.ctx.JsonApiErr(403, err.Error(), nil)
 		return
 	}
-
+	if proxy.ds.Type == m.DS_AZURE {
+		azure.HandleRequest(proxy.ctx, proxy.ds)
+		return
+	}
 	reverseProxy := &httputil.ReverseProxy{
 		Director:      proxy.getDirector(),
 		FlushInterval: time.Millisecond * 200,
@@ -89,6 +84,20 @@ func (proxy *DataSourceProxy) HandleRequest() {
 	}
 
 	proxy.logRequest()
+
+	span, ctx := opentracing.StartSpanFromContext(proxy.ctx.Req.Context(), "datasource reverse proxy")
+	proxy.ctx.Req.Request = proxy.ctx.Req.WithContext(ctx)
+
+	defer span.Finish()
+	span.SetTag("datasource_id", proxy.ds.Id)
+	span.SetTag("datasource_type", proxy.ds.Type)
+	span.SetTag("user_id", proxy.ctx.SignedInUser.UserId)
+	span.SetTag("org_id", proxy.ctx.SignedInUser.OrgId)
+
+	opentracing.GlobalTracer().Inject(
+		span.Context(),
+		opentracing.HTTPHeaders,
+		opentracing.HTTPHeadersCarrier(proxy.ctx.Req.Request.Header))
 
 	reverseProxy.ServeHTTP(proxy.ctx.Resp, proxy.ctx.Req.Request)
 	proxy.ctx.Resp.Header().Del("Set-Cookie")
@@ -190,6 +199,7 @@ func (proxy *DataSourceProxy) validateRequest() error {
 	// found route if there are any
 	if len(proxy.plugin.Routes) > 0 {
 		for _, route := range proxy.plugin.Routes {
+			fmt.Printf("%+v\n", route)
 			// method match
 			if route.Method != "" && route.Method != "*" && route.Method != proxy.ctx.Req.Method {
 				continue
@@ -248,7 +258,6 @@ func checkWhiteList(c *middleware.Context, host string) bool {
 
 func (proxy *DataSourceProxy) applyRoute(req *http.Request) {
 	proxy.proxyPath = strings.TrimPrefix(proxy.proxyPath, proxy.route.Path)
-
 	data := templateData{
 		JsonData:       proxy.ds.JsonData.Interface().(map[string]interface{}),
 		SecureJsonData: proxy.ds.SecureJsonData.Decrypt(),
