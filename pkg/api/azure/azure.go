@@ -17,7 +17,7 @@ import (
   "sort"
 	b64 "encoding/base64"
 	"crypto/des"
-	"fmt"
+
 
 )
 var (
@@ -117,6 +117,7 @@ func init() {
     "MarginalQuery":        handleMarginalQuery,
     "LegacyQuery":          handleLegacyQuery,
 	"MetricsDec":			handleMetricsDec,
+	"LegacyMarginalQuery": handleLegacyMarginalQuery,
   }
 }
 
@@ -166,7 +167,6 @@ func execDefaultQuery(token string, url string) (map[string]interface {},string)
   if erra != nil {
     return nil,erra.Error()
   }
-
   requ.Header.Add("Content-Type", "application/json")
   requ.Header.Add("Authorization", "Bearer " + token)
   resp, errb := client.Do(requ)
@@ -245,7 +245,7 @@ func handleDefaultQueryMetrics(req *cwRequest, c *middleware.Context){
   query := req.Headers["Query"][0]
   data,error2 := execDefaultQuery(token.AccessToken,query)
   if error2 != "" {
-    dataproxyLogger.Error("Error calling query")
+    dataproxyLogger.Error("Error calling query 4")
     c.JsonApiErr(500, error2,errors.New(error2))
     return
   }
@@ -295,7 +295,7 @@ func handleDefaultQuery(req *cwRequest, c *middleware.Context){
   query := req.Headers["Query"][0]
   data,error2 := execDefaultQuery(token.AccessToken,query)
   if error2 != "" {
-    dataproxyLogger.Error("Error calling query")
+    dataproxyLogger.Error("Error calling query 5")
     c.JsonApiErr(500, error2,errors.New(error2))
     return
   }
@@ -348,8 +348,210 @@ func isMainInfoValid(md MetricDefinitions)bool{
   return expirationTime.After(time.Now())
 }
 
-func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
+func handleLegacyMarginalQuery(req *cwRequest, c *middleware.Context){
 
+	token,error := getAndSaveAuthTokenInfo(req)
+	if error != nil {
+		dataproxyLogger.Error("Error while obtaining token")
+		c.JsonApiErr(500,"Error obtaining access token", error)
+		return
+	}
+
+	query := req.Headers["Query"][0]
+	//gets all the entities (vms) in the respective resource
+	entitiesArray,error2 := execDefaultQuery(token.AccessToken,query)
+	if error2 != "" {
+		dataproxyLogger.Error("Error calling query for array")
+		c.JsonApiErr(500, error2,errors.New(error2))
+		return
+	}
+	entitiesArrayCast :=entitiesArray["value"].([]interface{})
+	//for each entity it will call its metric data for the given time interval
+	allDataPoints := AllData{}
+	for _, num := range entitiesArrayCast {
+		entityInfo :=num.(map[string]interface {})
+		metric := req.Headers["Filtertopmetric"][0]
+		id := entityInfo["id"].(string)+"/"+metric
+		tokenInfo := savedTokensLegacyQuery[id]
+		if (!isMainInfoValid(tokenInfo)) {
+
+			filter := url.QueryEscape("name.value eq '" + metric + "'")
+			url := "https://management.azure.com"+entityInfo["id"].(string)+"/metricDefinitions?api-version=2014-04-01&$filter="+filter
+			metricDefinitions, error2 := execDefaultQueryReturnBodyBytes(token.AccessToken, url)
+
+			if error2 != "" {
+				dataproxyLogger.Error("Error calling query for meds")
+				c.JsonApiErr(500, error2, errors.New(error2))
+				return
+			}
+			var bodyJson MetricDefinitions;
+			erre := json.Unmarshal(metricDefinitions, &bodyJson)
+			if erre != nil {
+				c.JsonApiErr(500, "Error decoding response", erre)
+				return
+			}
+			from :=req.Headers["From"][0]
+			till :=req.Headers["To"][0]
+			responses,errormfd := getMetricsFromMetricDefinitions(bodyJson, from, till)
+			if(errormfd!=""){
+				c.JsonApiErr(500,errormfd, errors.New(errormfd))
+				return
+			}
+
+			datapoints := [][2]float64{}
+			var average float64
+			var lengthResp float64
+			for _,values := range responses{
+				value := values["value"].([]interface{})
+				for _,entries := range value{
+					parsedTime,_:= time.Parse(time.RFC3339,entries.(map[string]interface{})["Timestamp"].(string))
+					fromDate,error1 := time.Parse(time.RFC3339, req.Headers["From"][0])
+					if(error1!=nil){
+						c.JsonApiErr(500,error1.Error(), error1)
+						return
+					}
+					toDate,error2 := time.Parse(time.RFC3339, req.Headers["To"][0])
+					if(error2!=nil){
+						c.JsonApiErr(500,error2.Error(), error2)
+						return
+					}
+					if(parsedTime.After(fromDate) && parsedTime.Before(toDate)){
+						var datapoint [2]float64
+						datapoint[0] = entries.(map[string]interface{})["Average"].(float64)
+						datapoint[1] = float64(parsedTime.UnixNano() / 1000000)
+						datapoints = append(datapoints,datapoint)
+						average = average +datapoint[0]
+						lengthResp = lengthResp +1
+					}
+				}
+			}
+			average = average/lengthResp
+			targetString := ""
+			if(req.Headers["Targetentityname"][0] == "true"){
+				targetString = entityInfo["name"].(string)
+			}
+			if(req.Headers["Targetmetricname"][0] == "true"){
+				if(len(targetString)>0){
+					targetString = targetString+" - "
+				}
+				targetString = targetString+"Top "+req.Headers["Name"][0]
+			}
+			if(req.Headers["Targetunit"][0] == "true"){
+				if(len(targetString)>0){
+					targetString = targetString+" - "
+				}
+
+				//targetString = targetString+ entityMetricValue["unit"].(string);
+				targetString = targetString+ req.Headers["Unit"][0];
+			}
+
+			//sdMetrics :=SingleData{Datapoints:datapoints,Target:targetString}
+			df := MarginalSingleData{Datapoints:datapoints,Target:targetString,Average:average}
+			allDataPoints = append(allDataPoints,df)
+			savedTokensLegacyQuery[id] = bodyJson
+			//sort.Sort(sdMetrics)
+		}else {
+			//same shit mas sem ir bscar o token
+			responses,errormfd := getMetricsFromMetricDefinitions(tokenInfo, req.Headers["From"][0], req.Headers["To"][0])
+			if(errormfd!=""){
+				c.JsonApiErr(500,errormfd, errors.New(errormfd))
+				return
+			}
+			datapoints := [][2]float64{}
+			var average float64
+			var lengthResp float64
+			for _,values := range responses{
+				value := values["value"].([]interface{})
+				for _,entries := range value{
+					parsedTime,_:= time.Parse(time.RFC3339,entries.(map[string]interface{})["Timestamp"].(string))
+					fromDate,error1 := time.Parse(time.RFC3339, req.Headers["From"][0])
+					if(error1!=nil){
+						c.JsonApiErr(500,error1.Error(), error1)
+						return
+					}
+					toDate,error2 := time.Parse(time.RFC3339, req.Headers["To"][0])
+					if(error2!=nil){
+						c.JsonApiErr(500,error2.Error(),error2)
+						return
+					}
+					if(parsedTime.After(fromDate) && parsedTime.Before(toDate)){
+						var datapoint [2]float64
+						datapoint[0] = entries.(map[string]interface{})["Average"].(float64)
+						datapoint[1] = float64(parsedTime.UnixNano() / 1000000)
+						datapoints = append(datapoints,datapoint)
+						average = average +datapoint[0]
+						lengthResp = lengthResp +1
+					}
+				}
+			}
+			average = average/lengthResp
+			targetString := ""
+			if(req.Headers["Targetentityname"][0] == "true"){
+				targetString = entityInfo["name"].(string)
+			}
+			if(req.Headers["Targetmetricname"][0] == "true"){
+				if(len(targetString)>0){
+					targetString = targetString+" - "
+				}
+				targetString = targetString+"Top "+req.Headers["Name"][0]
+			}
+			if(req.Headers["Targetunit"][0] == "true"){
+				if(len(targetString)>0){
+					targetString = targetString+" - "
+				}
+
+				//targetString = targetString+ entityMetricValue["unit"].(string);
+				targetString = targetString+ req.Headers["Unit"][0];
+			}
+
+			//sdMetrics :=SingleData{Datapoints:datapoints,Target:targetString}
+			df := MarginalSingleData{Datapoints:datapoints,Target:targetString,Average:average}
+			allDataPoints = append(allDataPoints,df)
+		}
+
+	}
+	limit,_ :=strconv.Atoi(req.Headers["Limit"][0])
+	totalsdMetrics :=[]SingleData{}
+	if(limit < len(allDataPoints)){
+		sort.Sort(allDataPoints)
+		if(req.Headers["Metrictype"][0] == "bottom") {
+			allCuted := allDataPoints[:limit]
+			dataproxyLogger.Debug("top query finished")
+			for _,dtps := range allCuted{
+				sdMetrics := SingleData{Datapoints:dtps.Datapoints,Target:dtps.Target}
+				sort.Sort(sdMetrics)
+				totalsdMetrics =append(totalsdMetrics,sdMetrics)
+			}
+			c.JSON(200, totalsdMetrics)
+			return
+		} else{
+			start := len(allDataPoints)-limit
+			allCuted := allDataPoints[start:]
+			dataproxyLogger.Debug("top query finished")
+			for _,dtps := range allCuted{
+				sdMetrics := SingleData{Datapoints:dtps.Datapoints,Target:dtps.Target}
+				sort.Sort(sdMetrics)
+				totalsdMetrics =append(totalsdMetrics,sdMetrics)
+			}
+			c.JSON(200, totalsdMetrics)
+			return
+		}
+	}
+	for _,dtps := range allDataPoints{
+		sdMetrics := SingleData{Datapoints:dtps.Datapoints,Target:dtps.Target}
+		sort.Sort(sdMetrics)
+		totalsdMetrics =append(totalsdMetrics,sdMetrics)
+	}
+	dataproxyLogger.Debug("top query finished")
+	c.JSON(200,totalsdMetrics)
+	return
+}
+
+
+
+
+
+func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
   tokenInfo := savedTokensLegacyQuery[req.Headers["Id"][0]]
   if (!isMainInfoValid(tokenInfo)) {
     token, error := getAndSaveAuthTokenInfo(req)
@@ -360,9 +562,10 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
     }
     filter := url.QueryEscape("name.value eq '" + req.Headers["Value"][0] + "'")
     url := req.Headers["Resource"][0] + req.Headers["Uri"][0] + "/metricDefinitions?api-version=2014-04-01&$filter=" + filter
+
     metricDefinitions, error2 := execDefaultQueryReturnBodyBytes(token.AccessToken, url)
     if error2 != "" {
-      dataproxyLogger.Error("Error calling query")
+      dataproxyLogger.Error("Error calling query 1")
       c.JsonApiErr(500, error2, errors.New(error2))
       return
     }
@@ -372,8 +575,6 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
       c.JsonApiErr(500, "Error decoding response", erre)
       return
     }
-	  fmt.Println("a primeira")
-	  fmt.Println(bodyJson)
     responses,errormfd := getMetricsFromMetricDefinitions(bodyJson, req.Headers["From"][0], req.Headers["Till"][0])
     if(errormfd!=""){
       c.JsonApiErr(500,errormfd, errors.New(errormfd))
@@ -389,7 +590,6 @@ func handleLegacyQuery(req *cwRequest, c *middleware.Context) {
     c.JSON(200, sdmetrics)
     return
   }else{
-	  fmt.Println("a segunda")
     responses,errormfd := getMetricsFromMetricDefinitions(tokenInfo, req.Headers["From"][0], req.Headers["Till"][0])
     if(errormfd!=""){
       c.JsonApiErr(500,errormfd, errors.New(errormfd))
@@ -515,8 +715,6 @@ func getMetrics(metricDefinitions MetricDefinitions,from string, till string, ti
   var responses []map[string]interface{}
   for _,query := range queries{
     client := &http.Client{Timeout: 20 * time.Second}
-	  fmt.Println(3456)
-	  fmt.Println(query)
     requ, erra := http.NewRequest("GET", query, nil)
     if erra != nil {
       dataproxyLogger.Error("Error generating new get request for: "+query)
@@ -602,7 +800,6 @@ return ma[0]
 }
 
 func handleMarginalQuery(req *cwRequest, c *middleware.Context){
-
   token,error := getAndSaveAuthTokenInfo(req)
   if error != nil {
     dataproxyLogger.Error("Error while obtaining token")
@@ -613,7 +810,7 @@ func handleMarginalQuery(req *cwRequest, c *middleware.Context){
   //gets all the entities (vms) in the respective resource
   entitiesArray,error2 := execDefaultQuery(token.AccessToken,query)
   if error2 != "" {
-    dataproxyLogger.Error("Error calling query")
+    dataproxyLogger.Error("Error calling query 2")
     c.JsonApiErr(500, error2,errors.New(error2))
     return
   }
@@ -641,7 +838,7 @@ func handleMarginalQuery(req *cwRequest, c *middleware.Context){
 
     entityMetricRaw,error3 := execDefaultQuery(token.AccessToken,urll)
     if error3 != "" {
-      dataproxyLogger.Error("Error calling query")
+      dataproxyLogger.Error("Error calling query 3")
       c.JsonApiErr(500, error3,errors.New(error3))
       return
     }
